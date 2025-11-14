@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>Glaze-like p5.js</title>
+  <title>Glaze-like Generative Patterns</title>
   <style>
     body {
       margin: 0;
@@ -11,17 +11,30 @@
       justify-content: center;
       align-items: center;
       height: 100vh;
+      color: #eee;
+      font-family: system-ui, sans-serif;
+      flex-direction: column;
+      gap: 8px;
     }
     canvas {
-      box-shadow: 0 0 20px rgba(0,0,0,0.6);
+      box-shadow: 0 0 24px rgba(0,0,0,0.75);
+    }
+    .hint {
+      font-size: 12px;
+      opacity: 0.7;
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/p5@1.9.0/lib/p5.min.js"></script>
 </head>
 <body>
+<div class="hint">
+  [1] 緑＋オレンジ釉薬 / [2] 層状レイヤー / [3] 青＋金粉 / [Space] 再生成
+</div>
 <script>
-  let W = 800;
-  let H = 800;
+  let W = 768;
+  let H = 768;
+  let mode = 1;   // 1, 2, 3 で各パターン
+  let seed = 123;
 
   function setup() {
     createCanvas(W, H);
@@ -31,95 +44,222 @@
   }
 
   function draw() {
-    background(0, 0, 15);
-    drawGlaze();
+    randomSeed(seed);
+    noiseSeed(seed);
+    if (mode === 1) {
+      drawPatternA();
+    } else if (mode === 2) {
+      drawPatternB();
+    } else if (mode === 3) {
+      drawPatternC();
+    }
   }
 
-  function drawGlaze() {
-    // ライト方向（左上から）
-    let lx = -0.3;
-    let ly = -0.5;
-    let lz = 1.0;
-    let lenL = Math.sqrt(lx*lx + ly*ly + lz*lz);
-    lx /= lenL;
-    ly /= lenL;
-    lz /= lenL;
+  function keyPressed() {
+    if (key === '1') {
+      mode = 1;
+      redrawWithNewSeed();
+    } else if (key === '2') {
+      mode = 2;
+      redrawWithNewSeed();
+    } else if (key === '3') {
+      mode = 3;
+      redrawWithNewSeed();
+    } else if (key === ' ') {
+      redrawWithNewSeed();
+    }
+  }
 
-    // 描画
+  function redrawWithNewSeed() {
+    seed = Math.floor(Math.random() * 1e7);
+    redraw();
+  }
+
+  // -----------------------------
+  // 共通ユーティリティ
+  // -----------------------------
+  function setPixel(x, y, col) {
+    const idx = 4 * (x + y * W);
+    pixels[idx + 0] = red(col);
+    pixels[idx + 1] = green(col);
+    pixels[idx + 2] = blue(col);
+    pixels[idx + 3] = 255;
+  }
+
+  function smoothstep(edge0, edge1, x) {
+    let t = constrain((x - edge0) / (edge1 - edge0), 0, 1);
+    return t * t * (3 - 2 * t);
+  }
+
+  // -----------------------------
+  // Pattern A: 緑〜ターコイズ＋オレンジの流れ
+  // -----------------------------
+  function drawPatternA() {
+    background(170, 60, 10); // 暗めの背景
+
     loadPixels();
     for (let y = 0; y < H; y++) {
+      let vy = y / H; // 0〜1
+
       for (let x = 0; x < W; x++) {
+        let vx = x / W;
 
-        // 壺っぽい楕円のローカル座標に正規化
-        let nx = (x - W * 0.5) / (W * 0.3);    // 横方向
-        let ny = (y - H * 0.55) / (H * 0.45);  // 縦方向
+        // ベース：縦グラデーションのターコイズ
+        let baseHue = 175 + vy * 10;     // 緑寄り〜水色寄り
+        let baseSat = 60 + vy * 25;
+        let baseBri = 20 + (1 - vy) * 55;
+        
+        // 大きめノイズで色の揺らぎ
+        let n = noise(vx * 1.5, vy * 2.5);
+        baseHue += (n - 0.5) * 20;
+        baseSat += (n - 0.5) * 20;
+        baseBri += (n - 0.5) * 15;
 
-        let r2 = nx*nx + ny*ny;
-        if (r2 <= 1.0) { // 形の内側だけ
+        // 右側のオレンジの流れ
+        // x + ノイズで境界をふにゃっと
+        let flowField = vx + 0.25 * (noise(vx * 4, vy * 3) - 0.5);
+        let flowMask = smoothstep(0.55, 0.9, flowField); // 0〜1
+        if (flowMask > 0.01) {
+          let orangeHue = 32 + (noise(vx * 8, vy * 10) - 0.5) * 10;
+          let orangeSat = 80 + (noise(vx * 15, vy * 15) - 0.5) * 15;
+          let orangeBri = 45 + flowMask * 40;
 
-          // 中心が厚いイメージ
-          let thickness = Math.sqrt(1.0 - r2);
+          // ベースとオレンジをブレンド
+          let h = lerp(baseHue, orangeHue, flowMask);
+          let s = lerp(baseSat, orangeSat, flowMask);
+          let b = lerp(baseBri, orangeBri, flowMask);
 
-          // 釉薬の"流れ"ノイズ（縦方向強め）
-          let n1 = noise(x * 0.01, y * 0.03);
-          let n2 = noise(x * 0.02, y * 0.01 + n1 * 2.0);
-          let flow = n1 * 0.6 + n2 * 0.4; // 0〜1
-
-          // 下側で釉薬が溜まる感じ
-          let vertical = map(y, H * 0.2, H * 0.9, 0, 1);
-          vertical = constrain(vertical, 0, 1);
-
-          // 🟦 色設計：青磁っぽい感じ
-          let baseHue  = 190; // ベースの色相
-          let hueRange = 20;  // ノイズによる揺らぎ
-          let h = baseHue + hueRange * (flow - 0.5);
-
-          let s = 40 + 40 * thickness + 20 * vertical;  // 厚み＆下の方で彩度アップ
-          let b = 35 + 25 * flow + 30 * thickness;      // ノイズ＆厚みで明度
-
-          // 楕円体の法線っぽいもの
-          let nx3 = nx;
-          let ny3 = ny;
-          let nz3 = Math.sqrt(Math.max(0, 1.0 - nx3*nx3 - ny3*ny3));
-
-          let lenN = Math.sqrt(nx3*nx3 + ny3*ny3 + nz3*nz3);
-          if (lenN > 0) {
-            nx3 /= lenN;
-            ny3 /= lenN;
-            nz3 /= lenN;
-          }
-
-          // 拡散＋スペキュラ
-          let dot = Math.max(0, nx3*lx + ny3*ly + nz3*lz);
-          let diff = dot;
-          let spec = Math.pow(dot, 30) * 60.0; // 光沢の強さ
-
-          b = b * (0.6 + 0.4 * diff);   // ライトで少しコントラスト
-          b = constrain(b + spec, 0, 100);
-
-          // 微妙なムラ（マイクロノイズ）
-          let microNoise = noise(x * 0.3, y * 0.3) - 0.5;
-          b = constrain(b + microNoise * 8, 0, 100);
-
-          // HSB → RGB にして pixels[] に書き込み
+          // 微細な泡っぽいムラ
+          let micro = noise(vx * 60, vy * 60) - 0.5;
+          b += micro * 10;
           let c = color(h, s, b);
-          let idx = (y * W + x) * 4;
-          pixels[idx + 0] = red(c);
-          pixels[idx + 1] = green(c);
-          pixels[idx + 2] = blue(c);
-          pixels[idx + 3] = 255;
+          setPixel(x, y, c);
+        } else {
+          // オレンジがかからないところはベースのみ
+          let micro = noise(vx * 40, vy * 40) - 0.5;
+          baseBri += micro * 8;
+          let c = color(baseHue, baseSat, baseBri);
+          setPixel(x, y, c);
         }
       }
     }
     updatePixels();
   }
 
-  // スペースキーでパターン再生成
-  function keyPressed() {
-    if (key === ' ') {
-      noiseSeed(Math.floor(Math.random() * 100000));
-      redraw();
+  // -----------------------------
+  // Pattern B: 層状の赤〜緑〜ブラウン
+  // -----------------------------
+  function drawPatternB() {
+    background(10, 80, 10);
+
+    loadPixels();
+    for (let y = 0; y < H; y++) {
+      let vy = y / H;
+      for (let x = 0; x < W; x++) {
+        let vx = x / W;
+
+        // "地層"っぽい値
+        let hBand = vy * 5.0 
+                    + noise(vx * 2.2, vy * 2.0) * 1.8
+                    + noise(vx * 8.0, vy * 8.0) * 0.3;
+        // 0〜1に丸める
+        hBand = hBand - floor(hBand);
+
+        // バンド位置を少し歪ませて輪郭を面白くする
+        let offset = (noise(vx * 4.0, vy * 1.5) - 0.5) * 0.15;
+        let layerPos = constrain(hBand + offset, 0, 1);
+
+        // レイヤーに応じた色（ざっくり 4〜5分割）
+        let h, s, b;
+        if (layerPos < 0.22) {
+          // 上の赤系
+          h = 8 + layerPos * 10;
+          s = 80;
+          b = 45 + noise(vx * 10, vy * 10) * 15;
+        } else if (layerPos < 0.42) {
+          // オレンジ〜黄土
+          h = 25 + (layerPos - 0.22) * 40;
+          s = 75;
+          b = 55 + noise(vx * 10, vy * 10) * 10;
+        } else if (layerPos < 0.7) {
+          // 緑〜ターコイズ
+          h = 145 + (layerPos - 0.42) * 40;
+          s = 70 + noise(vx * 8, vy * 8) * 20;
+          b = 40 + noise(vx * 10, vy * 10) * 25;
+        } else {
+          // 下の暗いブラウン
+          h = 20 + (layerPos - 0.7) * 15;
+          s = 60;
+          b = 10 + noise(vx * 6, vy * 6) * 20;
+        }
+
+        // 層の縁を少し明るく
+        let edgeVal = abs(layerPos * 6.0 - round(layerPos * 6.0));
+        let edgeBoost = smoothstep(0.0, 0.25, 0.25 - edgeVal);
+        b += edgeBoost * 20;
+
+        let c = color(h, s, b);
+        setPixel(x, y, c);
+      }
     }
+    updatePixels();
+  }
+
+  // -----------------------------
+  // Pattern C: 青〜水色＋金粉
+  // -----------------------------
+  function drawPatternC() {
+    background(220, 80, 5);
+
+    loadPixels();
+    for (let y = 0; y < H; y++) {
+      let vy = y / H;
+      for (let x = 0; x < W; x++) {
+        let vx = x / W;
+
+        // 波打つ帯を作るために y をノイズで少しずらす
+        let wavyY = vy + (noise(vx * 2.0, vy * 1.5) - 0.5) * 0.25;
+
+        // グラデーションベース（濃紺 → 明るい水色）
+        let baseHue = lerp(215, 195, wavyY); // ちょい青寄り〜シアン寄り
+        let baseSat = lerp(70, 55, wavyY);
+        let baseBri = lerp(20, 70, wavyY);
+
+        // 深さ感のノイズ
+        let depthNoise = noise(vx * 4.0, wavyY * 8.0);
+        baseBri += (depthNoise - 0.5) * 25;
+
+        let colH = baseHue;
+        let colS = baseSat;
+        let colB = baseBri;
+
+        // 金粉判定：別ノイズでしきい値超えたところを金に
+        let goldField = noise(vx * 25.0 + 100, vy * 25.0 + 50);
+        let goldChance = 0.80; // 閾値。上げると粒が減る
+        if (goldField > goldChance) {
+          // いくつか粒径のバリエーション
+          let sizeNoise = noise(vx * 60.0, vy * 60.0);
+          if (sizeNoise > 0.65) {
+            // 金色
+            colH = 46 + random(-4, 4);
+            colS = 80 + random(-10, 10);
+            colB = 80 + random(-10, 10);
+          }
+        }
+
+        // たまに細い白ハイライト（流れ星みたいなやつ）
+        let stripe = noise(vx * 8.0, vy * 30.0);
+        if (stripe > 0.92 && abs(wavyY - 0.45) < 0.08) {
+          colH = 210;
+          colS = 5;
+          colB = 95;
+        }
+
+        let c = color(colH, colS, colB);
+        setPixel(x, y, c);
+      }
+    }
+    updatePixels();
   }
 </script>
 </body>
