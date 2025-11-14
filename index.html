@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Generative Art</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+        }
+
+        .container {
+            text-align: center;
+            padding: 2rem;
+            max-width: 800px;
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        p {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            opacity: 0.9;
+        }
+
+        .canvas-container {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 2rem;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+        }
+
+        canvas {
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 5px;
+            max-width: 100%;
+            background: #fff;
+        }
+
+        button {
+            margin-top: 1rem;
+            padding: 12px 30px;
+            font-size: 1rem;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid #fff;
+            color: #fff;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 AI Generative Art</h1>
+        <p>プロジェダクティブアートの世界へようこそ</p>
+
+        <div class="canvas-container">
+            <canvas id="artCanvas" width="600" height="400"></canvas>
+            <br>
+            <button onclick="generateArt()">新しいアートを生成</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('artCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function generateArt() {
+            // キャンバスをクリア
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // ランダムな図形を描画
+            const numShapes = Math.floor(Math.random() * 20) + 10;
+
+            for (let i = 0; i < numShapes; i++) {
+                const x = Math.random() * canvas.width;
+                const y = Math.random() * canvas.height;
+                const radius = Math.random() * 50 + 10;
+                const r = Math.floor(Math.random() * 256);
+                const g = Math.floor(Math.random() * 256);
+                const b = Math.floor(Math.random() * 256);
+                const alpha = Math.random() * 0.7 + 0.3;
+
+                ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+                ctx.beginPath();
+
+                // ランダムに円または四角形を選択
+                if (Math.random() > 0.5) {
+                    ctx.arc(x, y, radius, 0, Math.PI * 2);
+                } else {
+                    ctx.rect(x - radius, y - radius, radius * 2, radius * 2);
+                }
+
+                ctx.fill();
+            }
+
+            // ランダムなラインを追加
+            const numLines = Math.floor(Math.random() * 10) + 5;
+            for (let i = 0; i < numLines; i++) {
+                const x1 = Math.random() * canvas.width;
+                const y1 = Math.random() * canvas.height;
+                const x2 = Math.random() * canvas.width;
+                const y2 = Math.random() * canvas.height;
+                const r = Math.floor(Math.random() * 256);
+                const g = Math.floor(Math.random() * 256);
+                const b = Math.floor(Math.random() * 256);
+
+                ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.5)`;
+                ctx.lineWidth = Math.random() * 5 + 1;
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+            }
+        }
+
+        // 初期アートを生成
+        generateArt();
+    </script>
+</body>
+</html>
