@@ -1,146 +1,126 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Generative Art</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: #fff;
-        }
-
-        .container {
-            text-align: center;
-            padding: 2rem;
-            max-width: 800px;
-        }
-
-        h1 {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-        }
-
-        p {
-            font-size: 1.2rem;
-            margin-bottom: 2rem;
-            opacity: 0.9;
-        }
-
-        .canvas-container {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            padding: 2rem;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
-        }
-
-        canvas {
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 5px;
-            max-width: 100%;
-            background: #fff;
-        }
-
-        button {
-            margin-top: 1rem;
-            padding: 12px 30px;
-            font-size: 1rem;
-            background: rgba(255, 255, 255, 0.2);
-            border: 2px solid #fff;
-            color: #fff;
-            border-radius: 30px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        button:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>Glaze-like p5.js</title>
+  <style>
+    body {
+      margin: 0;
+      background: #111;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    canvas {
+      box-shadow: 0 0 20px rgba(0,0,0,0.6);
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/p5@1.9.0/lib/p5.min.js"></script>
 </head>
 <body>
-    <div class="container">
-        <h1>🎨 AI Generative Art</h1>
-        <p>プロジェダクティブアートの世界へようこそ</p>
+<script>
+  let W = 800;
+  let H = 800;
 
-        <div class="canvas-container">
-            <canvas id="artCanvas" width="600" height="400"></canvas>
-            <br>
-            <button onclick="generateArt()">新しいアートを生成</button>
-        </div>
-    </div>
+  function setup() {
+    createCanvas(W, H);
+    pixelDensity(1);
+    colorMode(HSB, 360, 100, 100, 100);
+    noLoop();
+  }
 
-    <script>
-        const canvas = document.getElementById('artCanvas');
-        const ctx = canvas.getContext('2d');
+  function draw() {
+    background(0, 0, 15);
+    drawGlaze();
+  }
 
-        function generateArt() {
-            // キャンバスをクリア
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+  function drawGlaze() {
+    // ライト方向（左上から）
+    let lx = -0.3;
+    let ly = -0.5;
+    let lz = 1.0;
+    let lenL = Math.sqrt(lx*lx + ly*ly + lz*lz);
+    lx /= lenL;
+    ly /= lenL;
+    lz /= lenL;
 
-            // ランダムな図形を描画
-            const numShapes = Math.floor(Math.random() * 20) + 10;
+    // 描画
+    loadPixels();
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
 
-            for (let i = 0; i < numShapes; i++) {
-                const x = Math.random() * canvas.width;
-                const y = Math.random() * canvas.height;
-                const radius = Math.random() * 50 + 10;
-                const r = Math.floor(Math.random() * 256);
-                const g = Math.floor(Math.random() * 256);
-                const b = Math.floor(Math.random() * 256);
-                const alpha = Math.random() * 0.7 + 0.3;
+        // 壺っぽい楕円のローカル座標に正規化
+        let nx = (x - W * 0.5) / (W * 0.3);    // 横方向
+        let ny = (y - H * 0.55) / (H * 0.45);  // 縦方向
 
-                ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
-                ctx.beginPath();
+        let r2 = nx*nx + ny*ny;
+        if (r2 <= 1.0) { // 形の内側だけ
 
-                // ランダムに円または四角形を選択
-                if (Math.random() > 0.5) {
-                    ctx.arc(x, y, radius, 0, Math.PI * 2);
-                } else {
-                    ctx.rect(x - radius, y - radius, radius * 2, radius * 2);
-                }
+          // 中心が厚いイメージ
+          let thickness = Math.sqrt(1.0 - r2);
 
-                ctx.fill();
-            }
+          // 釉薬の"流れ"ノイズ（縦方向強め）
+          let n1 = noise(x * 0.01, y * 0.03);
+          let n2 = noise(x * 0.02, y * 0.01 + n1 * 2.0);
+          let flow = n1 * 0.6 + n2 * 0.4; // 0〜1
 
-            // ランダムなラインを追加
-            const numLines = Math.floor(Math.random() * 10) + 5;
-            for (let i = 0; i < numLines; i++) {
-                const x1 = Math.random() * canvas.width;
-                const y1 = Math.random() * canvas.height;
-                const x2 = Math.random() * canvas.width;
-                const y2 = Math.random() * canvas.height;
-                const r = Math.floor(Math.random() * 256);
-                const g = Math.floor(Math.random() * 256);
-                const b = Math.floor(Math.random() * 256);
+          // 下側で釉薬が溜まる感じ
+          let vertical = map(y, H * 0.2, H * 0.9, 0, 1);
+          vertical = constrain(vertical, 0, 1);
 
-                ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.5)`;
-                ctx.lineWidth = Math.random() * 5 + 1;
-                ctx.beginPath();
-                ctx.moveTo(x1, y1);
-                ctx.lineTo(x2, y2);
-                ctx.stroke();
-            }
+          // 🟦 色設計：青磁っぽい感じ
+          let baseHue  = 190; // ベースの色相
+          let hueRange = 20;  // ノイズによる揺らぎ
+          let h = baseHue + hueRange * (flow - 0.5);
+
+          let s = 40 + 40 * thickness + 20 * vertical;  // 厚み＆下の方で彩度アップ
+          let b = 35 + 25 * flow + 30 * thickness;      // ノイズ＆厚みで明度
+
+          // 楕円体の法線っぽいもの
+          let nx3 = nx;
+          let ny3 = ny;
+          let nz3 = Math.sqrt(Math.max(0, 1.0 - nx3*nx3 - ny3*ny3));
+
+          let lenN = Math.sqrt(nx3*nx3 + ny3*ny3 + nz3*nz3);
+          if (lenN > 0) {
+            nx3 /= lenN;
+            ny3 /= lenN;
+            nz3 /= lenN;
+          }
+
+          // 拡散＋スペキュラ
+          let dot = Math.max(0, nx3*lx + ny3*ly + nz3*lz);
+          let diff = dot;
+          let spec = Math.pow(dot, 30) * 60.0; // 光沢の強さ
+
+          b = b * (0.6 + 0.4 * diff);   // ライトで少しコントラスト
+          b = constrain(b + spec, 0, 100);
+
+          // 微妙なムラ（マイクロノイズ）
+          let microNoise = noise(x * 0.3, y * 0.3) - 0.5;
+          b = constrain(b + microNoise * 8, 0, 100);
+
+          // HSB → RGB にして pixels[] に書き込み
+          let c = color(h, s, b);
+          let idx = (y * W + x) * 4;
+          pixels[idx + 0] = red(c);
+          pixels[idx + 1] = green(c);
+          pixels[idx + 2] = blue(c);
+          pixels[idx + 3] = 255;
         }
+      }
+    }
+    updatePixels();
+  }
 
-        // 初期アートを生成
-        generateArt();
-    </script>
+  // スペースキーでパターン再生成
+  function keyPressed() {
+    if (key === ' ') {
+      noiseSeed(Math.floor(Math.random() * 100000));
+      redraw();
+    }
+  }
+</script>
 </body>
 </html>
